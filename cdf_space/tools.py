@@ -1,8 +1,12 @@
 from functools import reduce
 
 
-def factorial(x):
-    if type(x) != int or x < 1:
-        raise ValueError('Argument x should be positive integer, not {}'.format(x))
+def is_positive_int(x):
+    return type(x) == int and x >= 1
 
-    return reduce(lambda x, y: x * y, range(1, x + 1))
+
+def factorial(i):
+    if not isinstance(i, int) or i < 0:
+        raise ValueError('Argument x should be non-negative integer, not {}'.format(i))
+
+    return reduce(lambda x, y: x * y, range(1, i + 1)) if i > 1 else 1
