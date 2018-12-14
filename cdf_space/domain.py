@@ -4,8 +4,8 @@ import numpy as np
 from .kernels import BaseKernel
 
 
-def euclidean_distance(p1, p2):
-    return np.sqrt(np.sum(np.square(p1 - p2)))
+def euclidean_distance(p1, p2, axis=0):
+    return np.sqrt(np.sum(np.square(p1 - p2), axis=axis))
 
 
 class Domain:
@@ -41,15 +41,33 @@ class Domain:
     def __calculate_default_h(self):
         return np.max(self.__data) - np.min(self.__data)
 
-    def generate_pdf_matrix(self, h=None, dtype=np.float64):
+    def __generate_pdf_matrix_by_row(self, h, dtype, normalized_constant):
         data_size = self.__data.shape[0]
         dim = self.__data.data.shape[1]
 
         pdf_matrix = np.zeros((data_size,), dtype=dtype)
 
-        if not h:
-            h = self.__calculate_default_h()
+        for i in data_size:
+            _current_point_repeated = np.empty(self.__data.shape, self.__data.dtype)
+            _current_point_repeated[:,:] = self.__data[i]
+
+            _dist = self.get_distance(_current_point_repeated, self.__data, axis=1) / h
+            pdf_matrix[i] = self.__kernel.estimate_density_row(_dist)
+            pdf_matrix[i] *= normalized_constant / (data_size * h ** dim)
+
+        return pdf_matrix
+
+    def generate_pdf_matrix(self, h=None, dtype=np.float64, by_row=False):
+        data_size = self.__data.shape[0]
+        dim = self.__data.data.shape[1]
+
+        h = h or self.__calculate_default_h()
         normalized_constant = self.__kernel.calculate_normalized_constant(dim)
+
+        if by_row:
+            return self.__generate_pdf_matrix_by_row(h, dtype, normalized_constant)
+
+        pdf_matrix = np.zeros((data_size,), dtype=dtype)
 
         for i in data_size:
             for j in data_size:
