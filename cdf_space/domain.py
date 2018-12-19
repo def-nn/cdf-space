@@ -4,18 +4,24 @@ import numpy as np
 from .kernels import BaseKernel
 
 
-def euclidean_distance(p1, p2, axis=0):
-    return np.sqrt(np.sum(np.square(p1 - p2), axis=axis))
+def euclidean_distance(p1, p2, h=1, axis=0):
+    return np.sqrt(np.sum(np.square((p1 - p2) / h), axis=axis))
 
 
 class Domain:
 
-    def __init__(self, data, kernel, dist_function=euclidean_distance):
+    def __init__(self, data, kernel, dist_function=euclidean_distance, h=None):
         self.__data = data
         self.__get_distance = dist_function
         self.__kernel = kernel
 
         self.__clean()
+
+        self.__data_size = self.__data.shape[0]
+        self.__dim = self.__data.data.shape[1]
+
+        self.__h = None
+        self.set_h(h)
 
     def __clean(self):
         if not isinstance(self.__data, np.ndarray):
@@ -45,38 +51,42 @@ class Domain:
 
         return max_dist
 
-    def __generate_pdf_matrix_by_row(self, h, dtype, normalized_constant):
-        data_size = self.__data.shape[0]
-        dim = self.__data.data.shape[1]
+    def get_data_size(self):
+        return self.__data_size
 
-        pdf_matrix = np.zeros((data_size,), dtype=dtype)
+    def set_h(self, val):
+        if val is not None:
+            if not isinstance(val, numbers.Number):
+                raise ValueError("bandwidth parameter `h` must be a number")
+            self.__h = val
+        else:
+            self.__h = self.__calculate_default_h()
 
-        for i in range(data_size):
-            _current_point_repeated = np.empty(self.__data.shape, self.__data.dtype)
-            _current_point_repeated[:,:] = self.__data[i]
+    def __apply_kernel_estimator_optimized(self, prob_dist):
+        for i in range(self.__data_size):
+            _dist = self.__get_distance(self.__data, self.__data[i], h=h, axis=1)
+            prob_dist[i] *= self.__kernel.estimate_density_optimized(_dist)
 
-            _dist = self.__get_distance(_current_point_repeated, self.__data, axis=1) / h
-            pdf_matrix[i] = self.__kernel.estimate_density_row(_dist)
-            pdf_matrix[i] *= normalized_constant / (data_size * h ** dim)
+    def __apply_kernel_estimator(self, prob_dist):
+        for i in range(self.__data_size):
+            x_density = 0
+            for j in range(self.__data_size):
+                _dist = self.__get_distance(self.__data[i], self.__data[j], h=h)
+                x_density += self.__kernel.estimate_density(_dist)
+            prob_dist[i] *= x_density
 
-        return pdf_matrix
+    def __compute_probability_distribution(self, dst, n, optimized):
+        apply_kernel_estimator = self.__apply_kernel_estimator_optimized if optimized else self.__apply_kernel_estimator
+        apply_kernel_estimator(dst)
 
-    def generate_pdf_matrix(self, h=None, dtype=np.float64, by_row=False):
-        data_size = self.__data.shape[0]
-        dim = self.__data.data.shape[1]
+        normalized_constant = self.__kernel.calculate_normalized_constant(self.__dim)
+        dst *= normalized_constant / (n * self.__h ** self.__dim)
 
-        h = h or self.__calculate_default_h()
-        print(h)
-        normalized_constant = self.__kernel.calculate_normalized_constant(dim)
+    def generate_domain_probability_distribution(self, optimized=False, dtype=np.float64):
+        prob_dist = np.ones((self.__data_size,), dtype=dtype)
+        self.__compute_probability_distribution(prob_dist, self.__data_size, optimized)
 
-        if by_row:
-            return self.__generate_pdf_matrix_by_row(h, dtype, normalized_constant)
+        return prob_dist
 
-        pdf_matrix = np.zeros((data_size,), dtype=dtype)
-
-        for i in range(data_size):
-            for j in range(data_size):
-                pdf_matrix[i] += self.__kernel.estimate_density(self.__get_distance(self.__data[i], self.__data[j]) / h)
-            pdf_matrix[i] *= normalized_constant / (data_size * h ** dim)
-
-        return pdf_matrix
+    def update_space_probability_distribution(self, prob_dist, optimized=False):
+        self.__compute_probability_distribution(prob_dist, 1, optimized)

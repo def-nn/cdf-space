@@ -19,9 +19,15 @@ class BaseKernel:
         """.format(cls.__name__))
 
     @classmethod
-    def estimate_density_row(cls, dist_arr):
+    def estimate_density_optimized(cls, dist_arr):
         raise NotImplementedError("""
-            Method {}.estimate_density_row hasn't been implemented
+            Method {}.estimate_density_optimized hasn't been implemented
+        """.format(cls.__name__))
+
+    @classmethod
+    def compute_gradient_fall_rate(cls, dist):
+        raise NotImplementedError("""
+            Method {}.compute_gradient_fall_rate hasn't been implemented
         """.format(cls.__name__))
 
 
@@ -43,11 +49,15 @@ class EpanechnikovKernel(BaseKernel):
         return 1 - dist ** 2 if dist < 1 else 0
 
     @classmethod
-    def estimate_density_row(cls, dist_arr):
+    def estimate_density_optimized(cls, dist_arr):
         idx = np.where(dist_arr > 1)
         dist_arr = 1 - np.square(dist_arr)
         dist_arr[idx] = 0
         return np.sum(dist_arr)
+
+    @classmethod
+    def compute_gradient_fall_rate(cls, dist):
+        return 2 * dist if dist < 1 else 0
 
 
 class GaussianKernel(BaseKernel):
@@ -61,5 +71,9 @@ class GaussianKernel(BaseKernel):
         return math.exp(dist ** 2 / -2)
 
     @classmethod
-    def estimate_density_row(cls, dist_arr):
+    def estimate_density_optimized(cls, dist_arr):
         return np.sum(np.exp(np.square(dist_arr) / -2))
+
+    @classmethod
+    def compute_gradient_fall_rate(cls, dist):
+        return math.exp(dist ** 2 / -2)

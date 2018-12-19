@@ -1,4 +1,4 @@
-import math, time
+import time
 import numpy as np
 
 from cdf_space.kernels import EpanechnikovKernel, BaseKernel, GaussianKernel
@@ -16,9 +16,9 @@ if __name__ == '__main__':
         ]
     )
 
-    width = 192
-    height = 108
-    data = np.empty((width * height, 2), dtype=np.uint32)
+    width = 15
+    height = 11
+    data = np.empty((width * height, 2), dtype=np.int32)
 
     # print(data.shape)
 
@@ -26,32 +26,36 @@ if __name__ == '__main__':
         for j in range(width):
             data[i * width + j][0] = i
             data[i * width + j][1] = j
+            # print(data[i * width + j], end='  ')
+        # print()
 
     kernel = EpanechnikovKernel()
     domain = Domain(data, kernel)
 
+    exit(1)
     _time = time.time()
 
-    pdf = domain.generate_pdf_matrix()
+    pdf = domain.generate_domain_probability_distribution()
 
     exec_time = time.time() - _time
 
     _time = time.time()
 
+    print('foo')
+
     print(exec_time)
 
-    pdf_row = domain.generate_pdf_matrix(by_row=True)
+    pdf_optimized = domain.generate_domain_probability_distribution(optimized=True)
 
     exec_time_by_row = time.time() - _time
 
     # print(pdf == pdf_row)
-    print(exec_time)
     print(exec_time_by_row)
 
-    for i in range(width * height):
-        print(data[i], abs(pdf[i] - pdf_row[i]), pdf[i], pdf_row[i])
-    #
-    # print()
+    # for i in range(width * height):
+    #     print(data[i], abs(pdf[i] - pdf_row[i]) < 10 ** -10, pdf[i], pdf_row[i])
+
+    print()
     #
     # for i in range(height):
     #     for j in range(width):
