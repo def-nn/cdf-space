@@ -1,4 +1,4 @@
-import numbers
+import numbers, collections
 import numpy as np
 
 from .kernels import BaseKernel
@@ -10,7 +10,7 @@ def euclidean_distance(p1, p2, h=1, axis=0):
 
 class Domain:
 
-    def __init__(self, data, kernel, dist_function=euclidean_distance, h=None):
+    def __init__(self, data, kernel, h=None, label=None, dist_function=euclidean_distance):
         self.__data = data
         self.__get_distance = dist_function
         self.__kernel = kernel
@@ -21,13 +21,15 @@ class Domain:
         self.__dim = self.__data.data.shape[1]
 
         self.__h = None
-        self.set_h(h)
+        self.h = h
+        self.label = label
 
     def __clean(self):
         if not isinstance(self.__data, np.ndarray):
             self.__data = np.array(self.__data)
-            if not isinstance(self.__data[0], np.ndarray):
-                raise ValueError("Argument `data` should be convertible to 2-dimensional numpy array")
+
+        if len(self.__data.shape) != 2:
+            raise ValueError("Argument `data`  must be convertible to 2-dimensional numpy array")
 
         if self.__data.size == 0:
             raise ValueError("Argument `data` can't be empty")
@@ -51,10 +53,27 @@ class Domain:
 
         return max_dist
 
-    def get_data_size(self):
+    @property
+    def label(self):
+        return self.__label
+
+    @label.setter
+    def label(self, val):
+        if val is not None and not isinstance(val, collections.Hashable):
+            raise ValueError("label should be a hashable object, not {}".format(type(self.__label)))
+
+        self.__label = val
+
+    @property
+    def data_size(self):
         return self.__data_size
 
-    def set_h(self, val):
+    @property
+    def h(self):
+        return self.__h
+
+    @h.setter
+    def h(self, val):
         if val is not None:
             if not isinstance(val, numbers.Number):
                 raise ValueError("bandwidth parameter `h` must be a number")
@@ -64,14 +83,14 @@ class Domain:
 
     def __apply_kernel_estimator_optimized(self, prob_dist):
         for i in range(self.__data_size):
-            _dist = self.__get_distance(self.__data, self.__data[i], h=h, axis=1)
+            _dist = self.__get_distance(self.__data, self.__data[i], h=self.__h, axis=1)
             prob_dist[i] *= self.__kernel.estimate_density_optimized(_dist)
 
     def __apply_kernel_estimator(self, prob_dist):
         for i in range(self.__data_size):
             x_density = 0
             for j in range(self.__data_size):
-                _dist = self.__get_distance(self.__data[i], self.__data[j], h=h)
+                _dist = self.__get_distance(self.__data[i], self.__data[j], h=self.__h)
                 x_density += self.__kernel.estimate_density(_dist)
             prob_dist[i] *= x_density
 
@@ -82,11 +101,11 @@ class Domain:
         normalized_constant = self.__kernel.calculate_normalized_constant(self.__dim)
         dst *= normalized_constant / (n * self.__h ** self.__dim)
 
-    def generate_domain_probability_distribution(self, optimized=False, dtype=np.float64):
+    def generate_domain_probability_distribution(self, optimized=True, dtype=np.float64):
         prob_dist = np.ones((self.__data_size,), dtype=dtype)
         self.__compute_probability_distribution(prob_dist, self.__data_size, optimized)
 
         return prob_dist
 
-    def update_space_probability_distribution(self, prob_dist, optimized=False):
+    def update_space_probability_distribution(self, prob_dist, optimized=True):
         self.__compute_probability_distribution(prob_dist, 1, optimized)
