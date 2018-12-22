@@ -1,8 +1,9 @@
-import time
+import time, random
 import numpy as np
 
-from cdf_space.kernels import EpanechnikovKernel, BaseKernel, GaussianKernel
+from cdf_space.kernels import EpanechnikovKernel, GaussianKernel
 from cdf_space.domain import Domain
+from cdf_space.space import FeatureSpace
 
 
 if __name__ == '__main__':
@@ -16,51 +17,43 @@ if __name__ == '__main__':
         ]
     )
 
-    width = 15
+    width = 5
     height = 11
-    data = np.empty((width * height, 2), dtype=np.int32)
 
-    # print(data.shape)
+    data = np.empty((width * height, 2), dtype=np.int32)
+    data_1 = np.empty((width * height, 3), dtype=np.int32)
+    print(data.shape)
+    print(data_1.shape)
 
     for i in range(height):
         for j in range(width):
             data[i * width + j][0] = i
             data[i * width + j][1] = j
+
+            data_1[i * width + j][0] = 1
+            data_1[i * width + j][1] = 1
+            data_1[i * width + j][2] = 1
+
             # print(data[i * width + j], end='  ')
+            # print(data_1[i * width + j], end='  ')
         # print()
 
-    kernel = EpanechnikovKernel()
-    domain = Domain(data, kernel)
-
-    exit(1)
-    _time = time.time()
-
-    pdf = domain.generate_domain_probability_distribution()
-
-    exec_time = time.time() - _time
-
-    _time = time.time()
-
-    print('foo')
-
-    print(exec_time)
-
-    pdf_optimized = domain.generate_domain_probability_distribution(optimized=True)
-
-    exec_time_by_row = time.time() - _time
-
-    # print(pdf == pdf_row)
-    print(exec_time_by_row)
-
-    # for i in range(width * height):
-    #     print(data[i], abs(pdf[i] - pdf_row[i]) < 10 ** -10, pdf[i], pdf_row[i])
+    e_kernel = EpanechnikovKernel()
+    g_kernel = GaussianKernel()
+    domains = [Domain(data_1, g_kernel, label='random', h=20), Domain(data, e_kernel)]
+    space = FeatureSpace(domains=domains[1:])
 
     print()
-    #
+
+    pd = space.compute_probability_distribution()
+
     # for i in range(height):
     #     for j in range(width):
-    #         print(str(pdf[i * width + j])[:12], end='   ')
-    #     print()
-    #     for j in range(width):
-    #         print("{:^12}".format(str(data[i * width + j])), end='   ')
-    #     print()
+    #         print(str(pd[i * width + j])[:10], end='   ')
+
+    max = np.max(pd)
+
+    print('hey', pd.shape, np.sum(pd))
+
+    # for each in pd:
+    #     print(each / max)

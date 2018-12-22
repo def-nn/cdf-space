@@ -10,3 +10,4 @@ def factorial(i):
         raise ValueError('Argument x should be non-negative integer, not {}'.format(i))
 
     return reduce(lambda x, y: x * y, range(1, i + 1)) if i > 1 else 1
+
