@@ -10,9 +10,9 @@ def euclidean_distance(p1, p2, h=1, axis=0):
 
 class Domain:
 
-    def __init__(self, data, kernel, h=None, label=None, dist_function=euclidean_distance):
+    def __init__(self, data, kernel, h=None, label=None, dist_function=None):
         self.__data = data
-        self.__get_distance = dist_function
+        self.__get_distance = dist_function or euclidean_distance
         self.__kernel = kernel
 
         self.__clean()
@@ -69,6 +69,17 @@ class Domain:
         return self.__data_size
 
     @property
+    def data(self):
+        return self.__data
+
+    @property
+    def kernel(self):
+        return self.__kernel
+
+    def calculate_distance(self, p_r, p_l=None, axis=1):
+        return self.__get_distance(p_l or self.__data, p_r, h=self.__h, axis=axis)
+
+    @property
     def h(self):
         return self.__h
 
@@ -81,31 +92,19 @@ class Domain:
         else:
             self.__h = self.__calculate_default_h()
 
-    def __apply_kernel_estimator_optimized(self, prob_dist):
+    def __compute_probability_distribution(self, dst, n):
         for i in range(self.__data_size):
-            _dist = self.__get_distance(self.__data, self.__data[i], h=self.__h, axis=1)
-            prob_dist[i] *= self.__kernel.estimate_density_optimized(_dist)
-
-    def __apply_kernel_estimator(self, prob_dist):
-        for i in range(self.__data_size):
-            x_density = 0
-            for j in range(self.__data_size):
-                _dist = self.__get_distance(self.__data[i], self.__data[j], h=self.__h)
-                x_density += self.__kernel.estimate_density(_dist)
-            prob_dist[i] *= x_density
-
-    def __compute_probability_distribution(self, dst, n, optimized):
-        apply_kernel_estimator = self.__apply_kernel_estimator_optimized if optimized else self.__apply_kernel_estimator
-        apply_kernel_estimator(dst)
+            _dist = self.calculate_distance(p_r=self.__data[i])
+            dst[i] *= np.sum(self.__kernel.estimate_density_vector(_dist))
 
         normalized_constant = self.__kernel.calculate_normalized_constant(self.__dim)
         dst *= normalized_constant / (n * self.__h ** self.__dim)
 
-    def generate_domain_probability_distribution(self, optimized=True, dtype=np.float64):
+    def generate_domain_probability_distribution(self, dtype=np.float64):
         prob_dist = np.ones((self.__data_size,), dtype=dtype)
-        self.__compute_probability_distribution(prob_dist, self.__data_size, optimized)
+        self.__compute_probability_distribution(prob_dist, self.__data_size)
 
         return prob_dist
 
-    def update_space_probability_distribution(self, prob_dist, optimized=True):
-        self.__compute_probability_distribution(prob_dist, 1, optimized)
+    def update_space_probability_distribution(self, prob_dist):
+        self.__compute_probability_distribution(prob_dist, 1)
